@@ -1,0 +1,5 @@
+﻿# Nhap 1 dong URL/host public de hien thi tren landing page.
+# Vi du:
+# https://abc.trycloudflare.com
+# abc.trycloudflare.com
+https://prophet-montgomery-color-polls.trycloudflare.com
