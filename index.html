@@ -2088,26 +2088,9 @@
       const tokenSttWsUrl = document.getElementById("tokenSttWsUrl");
       const tokenTrWsUrl = document.getElementById("tokenTrWsUrl");
       let tokenEndpointTimer = null;
-      const METRICS_PORTS = [20241, 20242, 20243, 20244, 20245];
       const LS_PUBLIC_BASE = "vt_public_base";
-      const PUBLIC_ORIGIN_PATH = "/public-origin";
-
-      function buildProbeBases(extraBases){
-        const out = [];
-        const seen = new Set();
-        const sameOrigin = normalizeOriginCandidate(window.location.origin);
-        if (sameOrigin) {
-          out.push("");
-          seen.add("");
-        }
-        (extraBases || []).forEach((base) => {
-          const key = String(base || "").trim().replace(/\/+$/, "");
-          if (!key || seen.has(key)) return;
-          out.push(key);
-          seen.add(key);
-        });
-        return out;
-      }
+      const LS_TOKEN_ENDPOINTS = "vt_token_endpoints_v1";
+      const PUBLIC_URL_CODE_FILE = "public_url_code.txt";
 
       function normalizeOriginCandidate(raw){
         const v = String(raw || "").trim();
@@ -2137,88 +2120,195 @@
         }
       }
 
-      async function probePublicOriginFromServerEndpoint(){
-        const apiBases = buildProbeBases([
-          "http://127.0.0.1:8000",
-          "http://localhost:8000",
-          "http://127.0.0.1:8080",
-          "http://localhost:8080",
-        ]);
-        for (const base of apiBases){
-          try {
-            const prefix = base ? base.replace(/\/+$/, "") : "";
-            const res = await fetch(`${prefix}${PUBLIC_ORIGIN_PATH}?ts=${Date.now()}`, {
-              cache: "no-store",
-            });
-            if (!res.ok) continue;
-            const payload = await res.json();
-            const fromOrigin = normalizeOriginCandidate(payload?.origin);
-            if (fromOrigin) return fromOrigin;
-
-            const apiUrl = String(payload?.api || "").trim();
-            if (apiUrl) {
-              const stripped = apiUrl.replace(/\/docs\/?$/i, "");
-              const fromApi = normalizeOriginCandidate(stripped);
-              if (fromApi) return fromApi;
-            }
-          } catch {}
+      function normalizeHttpEndpoint(raw){
+        const input = String(raw || "").trim().replace(/^['"]|['"]$/g, "");
+        if (!input) return "";
+        try {
+          const withProto = input.includes("://") ? input : `https://${input}`;
+          const u = new URL(withProto);
+          let proto = u.protocol;
+          if (proto === "ws:") proto = "http:";
+          if (proto === "wss:") proto = "https:";
+          if (proto !== "http:" && proto !== "https:") return "";
+          return `${proto}//${u.host}${u.pathname || ""}`.replace(/\/+$/, "");
+        } catch {
+          return "";
         }
-        return "";
       }
 
-      async function probePublicOriginFromMetrics(){
-        const metricBases = buildProbeBases(["http://127.0.0.1:8080", "http://localhost:8080"]);
+      function normalizeApiEndpoint(raw){
+        const base = normalizeHttpEndpoint(raw);
+        if (!base) return "";
+        try {
+          const u = new URL(base);
+          let p = String(u.pathname || "").replace(/\/+$/, "");
+          if (!p) p = "/docs";
+          p = p.replace(/\/openapi\.json$/i, "/docs");
+          u.pathname = p;
+          u.search = "";
+          u.hash = "";
+          return u.toString().replace(/\/+$/, "");
+        } catch {
+          return "";
+        }
+      }
 
-        for (const port of METRICS_PORTS){
-          for (const base of metricBases){
-            try {
-              const prefix = base ? `${base.replace(/\/+$/, "")}` : "";
-              const res = await fetch(`${prefix}/__cloudflared_metrics/${port}/metrics?ts=${Date.now()}`, {
-                cache: "no-store",
-              });
-              if (!res.ok) continue;
-              const txt = await res.text();
-              const m = txt.match(/cloudflared_tunnel_user_hostnames_counts\{[^}]*userHostname="([^"]+)"/i);
-              if (!m || !m[1]) continue;
-              const normalized = normalizeOriginCandidate(m[1]);
-              if (normalized) return normalized;
-            } catch {}
+      function normalizeWsEndpoint(raw, defaultPath){
+        const input = String(raw || "").trim().replace(/^['"]|['"]$/g, "");
+        if (!input) return "";
+        try {
+          const withProto = input.includes("://") ? input : `wss://${input}`;
+          const u = new URL(withProto);
+          let proto = u.protocol;
+          if (proto === "http:") proto = "ws:";
+          if (proto === "https:") proto = "wss:";
+          if (proto !== "ws:" && proto !== "wss:") return "";
+          let p = String(u.pathname || "").replace(/\/+$/, "");
+          if (!p) p = defaultPath;
+          u.protocol = proto;
+          u.pathname = p;
+          u.search = "";
+          u.hash = "";
+          return u.toString().replace(/\/+$/, "");
+        } catch {
+          return "";
+        }
+      }
+
+      function extractUrlFromLine(line){
+        const s = String(line || "").trim();
+        if (!s) return "";
+        const m = s.match(/((?:https?|wss?):\/\/[^\s]+|[a-z0-9.-]+\.trycloudflare\.com(?:\/[^\s]*)?)/i);
+        return m ? String(m[1] || "").trim() : "";
+      }
+
+      function parsePublicUrlCodeText(raw){
+        const lines = String(raw || "").split(/\r?\n/);
+        let originRaw = "";
+        let apiRaw = "";
+        let sttRaw = "";
+        let trRaw = "";
+
+        for (const line of lines) {
+          const s = String(line || "").trim();
+          if (!s || /^#|^\/\/|^;/.test(s)) continue;
+
+          const kv = s.match(/^([a-z0-9 _-]+)\s*[:=]\s*(.+)$/i);
+          if (kv) {
+            const key = String(kv[1] || "").trim().toLowerCase();
+            const val = String(kv[2] || "").trim();
+            if (!val) continue;
+            if (key.includes("api")) { apiRaw = apiRaw || val; continue; }
+            if (key.includes("stt")) { sttRaw = sttRaw || val; continue; }
+            if (key.includes("translator") || key === "tr" || key.includes("translate")) { trRaw = trRaw || val; continue; }
+            if (key.includes("origin") || key.includes("base") || key.includes("public")) { originRaw = originRaw || val; continue; }
           }
+
+          const urlValue = extractUrlFromLine(s);
+          if (!urlValue) continue;
+          if (!apiRaw && /\/docs\/?$/i.test(urlValue)) { apiRaw = urlValue; continue; }
+          if (!sttRaw && /^wss?:\/\//i.test(urlValue) && /\/stt\/?$/i.test(urlValue)) { sttRaw = urlValue; continue; }
+          if (!trRaw && /^wss?:\/\//i.test(urlValue) && /\/tr\/?$/i.test(urlValue)) { trRaw = urlValue; continue; }
+          if (!originRaw) originRaw = urlValue;
         }
-        return "";
+
+        const originFromApi = normalizeOriginCandidate(String(apiRaw || "").replace(/\/docs\/?$/i, "").replace(/\/openapi\.json$/i, ""));
+        const originFromStt = normalizeOriginCandidate(sttRaw);
+        const originFromTr = normalizeOriginCandidate(trRaw);
+        const origin = normalizeOriginCandidate(originRaw) || originFromApi || originFromStt || originFromTr;
+        const wsOrigin = toWsOrigin(origin);
+
+        const api = normalizeApiEndpoint(apiRaw) || (origin ? `${origin}/docs` : "");
+        const stt = normalizeWsEndpoint(sttRaw, "/stt") || (wsOrigin ? `${wsOrigin}/stt` : "");
+        const tr = normalizeWsEndpoint(trRaw, "/tr") || (wsOrigin ? `${wsOrigin}/tr` : "");
+
+        return { origin, api, stt, tr };
       }
 
-      async function resolvePublicOrigin(){
+      async function loadPublicUrlCodeConfig(){
+        try {
+          const fileUrl = new URL(PUBLIC_URL_CODE_FILE, window.location.href);
+          fileUrl.searchParams.set("ts", String(Date.now()));
+          const res = await fetch(fileUrl.toString(), { cache: "no-store" });
+          if (!res.ok) return null;
+          const txt = await res.text();
+          return parsePublicUrlCodeText(txt);
+        } catch {
+          return null;
+        }
+      }
+
+      function readCachedTokenEndpoints(){
+        try {
+          const raw = localStorage.getItem(LS_TOKEN_ENDPOINTS) || "";
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object") return null;
+          return {
+            origin: normalizeOriginCandidate(parsed.origin || ""),
+            api: normalizeApiEndpoint(parsed.api || ""),
+            stt: normalizeWsEndpoint(parsed.stt || "", "/stt"),
+            tr: normalizeWsEndpoint(parsed.tr || "", "/tr"),
+          };
+        } catch {
+          return null;
+        }
+      }
+
+      function writeCachedTokenEndpoints(cfg){
+        try {
+          localStorage.setItem(LS_TOKEN_ENDPOINTS, JSON.stringify({
+            origin: cfg?.origin || "",
+            api: cfg?.api || "",
+            stt: cfg?.stt || "",
+            tr: cfg?.tr || "",
+            at: Date.now(),
+          }));
+          if (cfg?.origin) localStorage.setItem(LS_PUBLIC_BASE, cfg.origin);
+        } catch {}
+      }
+
+      async function resolveTokenEndpoints(){
         const qs = new URLSearchParams(window.location.search);
-        const explicitCandidates = [
-          qs.get("public_base"),
-          qs.get("public"),
-          qs.get("base"),
-          qs.get("origin"),
-        ];
-        for (const c of explicitCandidates){
-          const n = normalizeOriginCandidate(c);
-          if (n) return n;
+        const fromQuery = {
+          origin: normalizeOriginCandidate(
+            qs.get("public_base") || qs.get("public") || qs.get("base") || qs.get("origin")
+          ),
+          api: normalizeApiEndpoint(qs.get("api")),
+          stt: normalizeWsEndpoint(qs.get("stt"), "/stt"),
+          tr: normalizeWsEndpoint(qs.get("tr"), "/tr"),
+        };
+
+        const fromFile = await loadPublicUrlCodeConfig();
+        const fromCache = readCachedTokenEndpoints();
+
+        const origin =
+          fromQuery.origin ||
+          fromFile?.origin ||
+          fromCache?.origin ||
+          normalizeOriginCandidate(localStorage.getItem(LS_PUBLIC_BASE) || "");
+        const wsOrigin = toWsOrigin(origin);
+
+        const api =
+          fromQuery.api ||
+          fromFile?.api ||
+          fromCache?.api ||
+          (origin ? `${origin}/docs` : "");
+        const stt =
+          fromQuery.stt ||
+          fromFile?.stt ||
+          fromCache?.stt ||
+          (wsOrigin ? `${wsOrigin}/stt` : "");
+        const tr =
+          fromQuery.tr ||
+          fromFile?.tr ||
+          fromCache?.tr ||
+          (wsOrigin ? `${wsOrigin}/tr` : "");
+
+        const resolved = { origin, api, stt, tr };
+        if (resolved.api || resolved.stt || resolved.tr) {
+          writeCachedTokenEndpoints(resolved);
         }
-
-        const fromServer = await probePublicOriginFromServerEndpoint();
-        if (fromServer) {
-          try { localStorage.setItem(LS_PUBLIC_BASE, fromServer); } catch {}
-          return fromServer;
-        }
-
-        const fromMetrics = await probePublicOriginFromMetrics();
-        if (fromMetrics) {
-          try { localStorage.setItem(LS_PUBLIC_BASE, fromMetrics); } catch {}
-          return fromMetrics;
-        }
-
-        let cachedRaw = "";
-        try { cachedRaw = localStorage.getItem(LS_PUBLIC_BASE) || ""; } catch {}
-        const cached = normalizeOriginCandidate(cachedRaw);
-        if (cached) return cached;
-
-        return normalizeOriginCandidate(window.location.origin);
+        return resolved;
       }
 
       function setTokenEndpointTexts(api, stt, tr){
@@ -2228,18 +2318,15 @@
       }
 
       async function updateTokenEndpoints(){
-        const origin = await resolvePublicOrigin();
-        if (!origin){
+        const endpoints = await resolveTokenEndpoints();
+        if (!endpoints || (!endpoints.api && !endpoints.stt && !endpoints.tr)) {
           setTokenEndpointTexts("-", "-", "-");
           return;
         }
-
-        const originClean = origin.replace(/\/+$/, "");
-        const wsOrigin = toWsOrigin(originClean);
         setTokenEndpointTexts(
-          `${originClean}/docs`,
-          wsOrigin ? `${wsOrigin}/stt` : "-",
-          wsOrigin ? `${wsOrigin}/tr` : "-"
+          endpoints.api || "-",
+          endpoints.stt || "-",
+          endpoints.tr || "-"
         );
       }
 
