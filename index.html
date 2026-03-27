@@ -228,6 +228,13 @@
       font-weight:800;
       letter-spacing:-.02em;
     }
+    .brandLogo{
+      width: 26px;
+      height: 26px;
+      display:block;
+      object-fit: contain;
+      flex: 0 0 auto;
+    }
     .brand .wordmark{ font-size: 14.5px; }
     .navlinks{
       display:flex;
@@ -1327,17 +1334,7 @@
     <div class="container">
       <div class="nav">
         <a class="brand" href="#top" aria-label="V-Transer">
-          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
-            <defs>
-              <linearGradient id="logoG" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="var(--cyan)"/>
-                <stop offset="0.55" stop-color="var(--blue)"/>
-                <stop offset="1" stop-color="var(--violet)"/>
-              </linearGradient>
-            </defs>
-            <circle cx="11" cy="11" r="9.3" fill="url(#logoG)" opacity="0.95"/>
-            <circle cx="14" cy="8" r="3.2" fill="rgba(255,255,255,.25)"/>
-          </svg>
+          <img class="brandLogo" src="./icon16.png" alt="V-Transer logo" width="26" height="26" />
           <span class="wordmark">V-Transer</span>
         </a>
 
@@ -1494,7 +1491,7 @@
                     playsinline
                     preload="metadata"
                     poster="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1600&q=80">
-                    <source src="D:/vtranser/demo.mp4" type="video/mp4" />
+                    <source src="./demo.mp4" type="video/mp4" />
                     Trình duyệt của bạn không hỗ trợ video.
                   </video>
                 </div>
@@ -1754,9 +1751,9 @@
       <div class="container">
         <div class="sectionHead reveal">
           <div>
-            <h2>Cài đặt nhanh</h2>
+            <h2>Cài đặt V-Transer</h2>
             <p>
-              Bạn có thể sử dụng phiên bản trên Store với cấu hình mặc định. Với các nhu cầu nâng cao, có thể chọn chạy local/server tuỳ chọn để kiểm soát dữ liệu.
+              V-Transer hiện có 2 phương án cài đặt: cài trực tiếp từ Chrome Web Store hoặc tự cài thủ công qua Load unpacked khi cần dùng bộ cài riêng.
             </p>
           </div>
         </div>
@@ -1764,33 +1761,25 @@
         <div class="installGrid">
           <div class="panel reveal">
             <div class="panelHead">
-              <b>Chọn cách bạn muốn dùng</b>
-              <span class="pill">Gợi ý</span>
+              <b>Chọn phương án cài đặt</b>
+              <span class="pill">2 lựa chọn</span>
             </div>
             <div class="panelBody">
               <div class="list">
                 <div class="row">
                   <div>
-                    <b>Cài từ Chrome Web Store</b>
-                    <small>Đơn giản, nhanh nhất cho người dùng phổ thông.</small>
+                    <b>Cài trực tiếp từ Chrome Web Store</b>
+                    <small>Phù hợp cho hầu hết người dùng. Cài nhanh, cập nhật thuận tiện và sử dụng ngay trên Chrome.</small>
                   </div>
-                  <a class="btn primary" href="#lienhe">Nhận link →</a>
+                  <a class="btn primary" href="https://chromewebstore.google.com/detail/v-transer/khomibgfigpfpbbjeedjbljnmekfgfjp?hl=en-GB&amp;utm_source=ext_sidebar" target="_blank" rel="noopener noreferrer">Mở Chrome Store</a>
                 </div>
 
                 <div class="row">
                   <div>
-                    <b>Chạy local</b>
-                    <small>Ưu tiên riêng tư: Chạy trên máy bạn.</small>
+                    <b>Tự cài đặt qua Load unpacked</b>
+                    <small>Dành cho nhu cầu cài thủ công. Tải bộ cài từ Google Drive rồi nạp extension bằng chế độ Load unpacked trong Chrome.</small>
                   </div>
-                  <a class="btn solid" href="#hoidap">Xem FAQ</a>
-                </div>
-
-                <div class="row">
-                  <div>
-                    <b>Triển khai server nội bộ</b>
-                    <small>Phù hợp nhóm/doanh nghiệp: kiểm soát dữ liệu, phân quyền, SLA.</small>
-                  </div>
-                  <a class="btn solid" href="#banggia">Bảng giá</a>
+                  <a class="btn solid" href="https://drive.google.com/drive/folders/1b-pMqcS6hG3ihYjAlWzbdXwwmvuUM3rv?hl=vi" target="_blank" rel="noopener noreferrer">Mở Google Drive</a>
                 </div>
               </div>
             </div>
@@ -1849,7 +1838,7 @@
 
           <div class="plan featured reveal">
             <div class="tag">Pro</div>
-            <div class="price">99k<small>/tháng</small></div>
+            <div class="price">69k<small>/tháng</small></div>
             <ul>
               <li><span class="tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M9.2 16.6 4.9 12.3l1.4-1.4 2.9 2.9 8.6-8.6 1.4 1.4-10 10Z"/></svg></span> Phụ đề + dịch thuật ổn định</li>
               <li><span class="tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M9.2 16.6 4.9 12.3l1.4-1.4 2.9 2.9 8.6-8.6 1.4 1.4-10 10Z"/></svg></span> Mở rộng 100+ ngôn ngữ</li>
@@ -1957,17 +1946,7 @@
         <div class="foot">
           <div class="footBrand">
             <div class="brand" style="gap:10px;">
-              <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
-                <defs>
-                  <linearGradient id="logoG2" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stop-color="var(--cyan)"/>
-                    <stop offset="0.55" stop-color="var(--blue)"/>
-                    <stop offset="1" stop-color="var(--violet)"/>
-                  </linearGradient>
-                </defs>
-                <circle cx="11" cy="11" r="9.3" fill="url(#logoG2)" opacity="0.95"/>
-                <circle cx="14" cy="8" r="3.2" fill="rgba(255,255,255,.25)"/>
-              </svg>
+              <img class="brandLogo" src="./icon16.png" alt="V-Transer logo" width="26" height="26" />
               <span class="wordmark">V-Transer</span>
             </div>
             <p>V-Transer - Tiện ích trí tuệ nhân tạo giúp bạn theo dõi các nội dung đa ngôn ngữ thời gian thực.</p>
